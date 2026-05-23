@@ -22,6 +22,12 @@ const server = createServer(async (req, res) => {
     }
 })
 
+
+let ball = { x: 300, y: 200, vx: 4, vy: 3 }
+let isPlaying = false
+let players = {}
+let sides = ["left", "right"]
+
 const io = new Server(server)
 io.on("connection", (socket) => {
     console.log(
@@ -30,8 +36,8 @@ io.on("connection", (socket) => {
     )
 
     if (Object.keys(players).length < 2) {
-        const takenSides = Object.values(players).map(p => p.side)
-        const freeSide = takenSides.find(s => !takenSides)
+        const takenSides = Object.values(players).map(p => p.sides)
+        const freeSide = sides.find(s => !takenSides.includes(s))
 
         players[socket.id] = {
             y: 150,
@@ -39,9 +45,16 @@ io.on("connection", (socket) => {
         }
     }
 
-    socket.emit("init",{
+    socket.emit("init", {
         id: socket.id,
         players
+    })
+
+    socket.on("move", (y) => {
+        if (players[socket.id]) {
+            players[socket.id].y = y
+        }
+        console.log(players)
     })
 
     socket.on("start", () => {
@@ -49,18 +62,16 @@ io.on("connection", (socket) => {
         ball.x = 200
         ball.y = 300
         ball.vx = 4 * (Math.random() > 0.5 ? 1 : -1)
-        ball.vx = 3 * (Math.random() > 0.5 ? 1 : -1)
+        ball.vy = 3 * (Math.random() > 0.5 ? 1 : -1)
+    })
+
+    socket.on("disconnect", () => {
+        delete players[socket.id]
     })
 })
-
-let ball = { x: 300, y: 200, vx: 4, vy: 3 }
-let isPlaying = false
-let players = {}
-let sides = ["left", "right"]
-
 setInterval(() => {
     if (!isPlaying) {
-        io.emit("state", { ball, isPlaying })
+        io.emit("state", { ball, isPlaying, players })
         return
     }
 
@@ -68,12 +79,29 @@ setInterval(() => {
     ball.y += ball.vy
 
     if (ball.x <= 0 || ball.x >= 600) ball.vx *= -1
-    if (ball.y <= 0 || ball.y >= 400) ball.vy *= -1
+    // if (ball.y <= 0 || ball.y >= 400) ball.vy *= -1
 
     ball.vx += ball.vx * 0.005
     ball.vy += ball.vy * 0.005
 
-    io.emit("state", { ball, isPlaying })
+    if (ball.vx > 7) ball.vx = 7
+    if (ball.vy > 7) ball.vy = 7
+
+    for (let id in players) {
+        let p = players[id]
+        if (p.sides == "left" && ball.x < 20) {
+            if (ball.y > p.y && ball.y < p.y + 100 && ball.x > 10) {
+                ball.vx *= -1
+            }
+        }
+        if (p.sides == "right" && ball.x > 580 && ball.x < 590) {
+            if (ball.y > p.y && ball.y < p.y + 100) {
+                ball.vx *= -1
+            }
+        }
+    }
+
+    io.emit("state", { ball, isPlaying, players })
 }, 1000 / 60)
 
 server.listen(3000, () => console.log("Server On"))

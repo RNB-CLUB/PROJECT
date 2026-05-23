@@ -6,7 +6,7 @@ const startBtn = document.getElementById("startBtn")
 
 startBtn.addEventListener("click", () => socket.emit("start"))
 
-let ball = {}
+let ball = { x: 0, y: 0 }
 let myId = {}
 let players = {}
 
@@ -14,7 +14,7 @@ let myY = 100
 canvas.addEventListener("mousemove", (e) => {
     const rect = canvas.getBoundingClientRect()
     const y = e.clientY - rect.top
-    myY = y
+    socket.emit("move", y)
 })
 
 socket.on("init", (data) => {
@@ -24,16 +24,18 @@ socket.on("init", (data) => {
 
 function draw() {
     ctx.clearRect(0, 0, 600, 400)
-    for(let id in players){
+    for (let id in players) {
         let p = players[id]
-    ctx.fillRect(p.side == "left" ? 10 : 580, myY, 10, 100)
-}
+        ctx.fillRect(p.sides == "left" ? 10 : 580, p.y, 10, 100)
+    }
     ctx.beginPath()
     ctx.arc(ball.x, ball.y, 8, 0, 2 * Math.PI)
     ctx.fill()
-    
+
 }
 socket.on("state", state => {
     ball = state.ball
+    players = state.players
+    console.log(players)
     draw()
 })
